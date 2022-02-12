@@ -22,14 +22,14 @@ else()
     link_directories(/usr/local/cuda/lib64)
 endif()
 
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
+#-Wfatal-errors
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -pthread -w -g  -D_MWAITXINTRIN_H_INCLUDED") 
 
 cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/prelu.cu ${PROJECT_SOURCE_DIR}/decode.cu)
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
-add_executable(face-recognition ${PROJECT_SOURCE_DIR}/main.cpp ${PROJECT_SOURCE_DIR}/arcfacem.cpp ${PROJECT_SOURCE_DIR}/retina_mnet.cpp)
+add_executable(face-recognition ${PROJECT_SOURCE_DIR}/main.cpp ${PROJECT_SOURCE_DIR}/arcfacem.cpp ${PROJECT_SOURCE_DIR}/retina_mnet.cpp ${PROJECT_SOURCE_DIR}/ilogger.cpp)
 target_link_libraries(face-recognition nvinfer)
 target_link_libraries(face-recognition cudart)
 target_link_libraries(face-recognition myplugins)

@@ -2,6 +2,7 @@
 #include<iostream>
 #include<vector>
 #include "retinaface.h"
+#include "ilogger.hpp"
 using namespace std;
 int main()
 {
@@ -20,19 +21,18 @@ int main()
     float *p2=new float[128];
     af.Inference_file("/home/cookoo/face_lib/liubin",p2);
 
+	auto libs = iLogger::find_files("/home/cookoo/face_lib");
+
+    auto merge_image = iLogger::mergeDiffPic(libs,1,"out");
+    cv::resize(merge_image, merge_image, cv::Size(200, 600));
+
 
 	auto file_path    = "/home/cookoo/images/image.jpg";
     std::string flag_path = "/home/cookoo/images/flag.txt";
 
 
-
-
-
-
-
 	
-	
-
+	// cv::namedWindow("ID RECOGNITION",cv::WINDOW_AUTOSIZE);
 	float *p3=new float[128];
 	while(1)
 	{
@@ -41,13 +41,22 @@ int main()
 		
 		if(f.good()){
 				cv::Mat face;
-				face = rf.Inference_file("/home/cookoo/images/image.jpg");
-				
+				cv::Mat result;
+				std::cout<<"1 "<<std::endl;
+				face = rf.Inference_file(file_path,result);
+				std::cout<<"2 "<<std::endl;
 				p3 = af.Inference_image(face);
 				float ret = af.Compare(p1,p3);
 				float ret1 = af.Compare(p2,p3);
-				
 				std::cout<<"compare result:"<<ret<<" "<<ret1<<std::endl;
+				cv::resize(result, result, cv::Size(800, 600));
+				std::vector<cv::Mat> imgs;
+				imgs.push_back(result);
+				imgs.push_back(merge_image);
+				cv::Mat final_result;
+				hconcat(imgs,final_result);
+				cv::imshow("face recognition", final_result);
+				cv::waitKey(1); //10ms
 				remove(file_path);
 				remove(flag_path.c_str());
 		}
@@ -55,6 +64,8 @@ int main()
 
 
 	}
+	delete[] p1;
+	delete[] p3;
 	delete[] p3;
 	rf.UnInit();
 	af.UnInit();

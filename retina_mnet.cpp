@@ -307,7 +307,7 @@ void retinaface::UnInit()
 }
 
 
-cv::Mat retinaface::Inference_file(std::string imagefile)
+cv::Mat retinaface::Inference_file(std::string imagefile,cv::Mat & result)
 {
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
@@ -315,10 +315,12 @@ cv::Mat retinaface::Inference_file(std::string imagefile)
     if(!img.data)
     {
         std::cout<<"data is NULL"<<std::endl;
-                cv::Mat image = cv::imread("/home/cookoo/face_lib/liubin.jpg");
+        cv::Mat image = cv::imread("/home/cookoo/face_lib/liubin.jpg");
+        result = image;
         return image ;
 
     }
+    std::cout<<"get the data"<<std::endl;
     cv::Mat pr_img = preprocess_img(img, INPUT_W, INPUT_H);
     // prepare input data ---------------------------
     //normilize the dataset
@@ -349,10 +351,14 @@ cv::Mat retinaface::Inference_file(std::string imagefile)
         }
         // for (size_t j = 0; j < res.size(); j++) {
         std::cout<<"cofidence : " << one_face.class_confidence <<std::endl;
-        if (one_face.class_confidence < CONF_THRESH){
-            cv::Mat image = cv::imread("/home/cookoo/face_lib/liubin.jpg");
-            return image ;
-        }
+        
+        //if confidece low
+        // if (one_face.class_confidence < CONF_THRESH){
+        //     cv::Mat image = cv::imread("../demo_face.jpg");
+        //     result = cv::imread("../demo.backupground.jpg");
+        //     return image ;
+        // }
+
         std::cout<<"1"<<std::endl;
         cv::Rect r = get_rect_adapt_landmark(tmp, INPUT_W, INPUT_H, one_face.bbox, one_face.landmark);
         std::cout<<"3"<<std::endl;
@@ -362,17 +368,14 @@ cv::Mat retinaface::Inference_file(std::string imagefile)
         std::cout<<tmp.size()<<std::endl;
         cv::Mat face = tmp(r); 
 
-        cv::imwrite(std::to_string(b) + "_result_face.jpg", face);
+        //cv::imwrite(std::to_string(b) + "_result_face.jpg", face);
         cv::rectangle(tmp, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-        //cv::putText(tmp, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
+        cv::putText(tmp, std::to_string((int)(one_face.class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
         for (int k = 0; k < 10; k += 2) {
             cv::circle(tmp, cv::Point(one_face.landmark[k], one_face.landmark[k + 1]), 1, cv::Scalar(255 * (k > 2), 255 * (k > 0 && k < 8), 255 * (k < 6)), 4);
         }
             
-        // }
-        //cv::imwrite(std::to_string(b) + "_result.jpg", tmp);
-        cv::imshow("face recognition",tmp);
-        cv::waitKey(10);
+        result = tmp.clone();
         return face;
     }
     
