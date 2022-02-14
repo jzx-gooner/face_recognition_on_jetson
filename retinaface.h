@@ -8,6 +8,7 @@
 #include "logging.h"
 #include "common.hpp"
 #include "calibrator.h"
+#include "opencv2/opencv.hpp"
 
 #define CHECK(status) \
     do\
@@ -38,7 +39,7 @@ class retinaface {
     int WTSToEngine(std::string wtsfile,std::string enginefile);
     int Init(std::string enginefile);
     void UnInit();
-    cv::Mat Inference_file(std::string imagefile,cv::Mat& result);
+    bool Inference_file(std::string imagefile,cv::Mat& face,cv::Mat& result,bool is_build_lib=false);
     ICudaEngine* createEngine(const std::string wtsfile,unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt);
     // void APIToModel(const std::string wtsfile,unsigned int maxBatchSize, IHostMemory** modelStream);
     void doInference(IExecutionContext& context, float* input, float* output, int batchSize);

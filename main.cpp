@@ -16,14 +16,26 @@ int main()
 	af.Init("../arcface-mobilefacenet.engine");
 	
 	//2.load face_lib (to do add faiss)
-	float *p1=new float[128];
-    af.Inference_file("/home/cookoo/face_lib/cl.jpg",p1);
-    float *p2=new float[128];
-    af.Inference_file("/home/cookoo/face_lib/liubin",p2);
-
-	auto libs = iLogger::find_files("/home/cookoo/face_lib");
-
-    auto merge_image = iLogger::mergeDiffPic(libs,1,"out");
+	cv::Mat_<float> face_lib(0,128);
+	std::vector<std::string> face_name;
+	auto libs_path = iLogger::find_files("/home/cookoo/face_lib/face");
+	for(auto& file:libs_path){
+		std::cout<<"kaishi"<<file<<std::endl;
+		auto file_name = iLogger::file_name(file,false);
+		cv::Mat detect_face,detect_result;
+		if(rf.Inference_file(file,detect_face,detect_result,true)){
+			cv::Mat face_feature = af.Inference_image(detect_face);	
+		
+			face_lib.push_back(face_feature);
+			face_name.push_back(file_name);
+		}else{
+			std::cout<<"can not find face"<<std::endl;
+		}
+	}
+	std::cout<<face_lib.size()<<std::endl;
+	auto face_library = std::make_tuple(face_lib,face_name);
+	auto merge_path = iLogger::find_files("/home/cookoo/face_lib/draw");
+    auto merge_image = iLogger::mergeDiffPic(merge_path,1,"out");
     cv::resize(merge_image, merge_image, cv::Size(200, 600));
 
 
@@ -33,7 +45,6 @@ int main()
 
 	
 	// cv::namedWindow("ID RECOGNITION",cv::WINDOW_AUTOSIZE);
-	float *p3=new float[128];
 	while(1)
 	{
 		 // sleep(1);
@@ -42,31 +53,51 @@ int main()
 		if(f.good()){
 				cv::Mat face;
 				cv::Mat result;
-				std::cout<<"1 "<<std::endl;
-				face = rf.Inference_file(file_path,result);
-				std::cout<<"2 "<<std::endl;
-				p3 = af.Inference_image(face);
-				float ret = af.Compare(p1,p3);
-				float ret1 = af.Compare(p2,p3);
-				std::cout<<"compare result:"<<ret<<" "<<ret1<<std::endl;
-				cv::resize(result, result, cv::Size(800, 600));
-				std::vector<cv::Mat> imgs;
-				imgs.push_back(result);
-				imgs.push_back(merge_image);
-				cv::Mat final_result;
-				hconcat(imgs,final_result);
-				cv::imshow("face recognition", final_result);
-				cv::waitKey(1); //10ms
-				remove(file_path);
-				remove(flag_path.c_str());
+				if(rf.Inference_file(file_path,face,result,false)){
+					
+							cv::Mat current_face;
+							current_face = af.Inference_image(face);
+							
+							auto scores = cv::Mat(get<0>(face_library)*current_face.t());
+							std::cout<<scores<<std::endl;
+							
+							float* pscore = scores.ptr<float>(0);
+							std::cout<<* pscore<<std::endl;
+							int label = std::max_element(pscore,pscore+scores.rows)-pscore;
+							std::cout<<label<<std::endl;
+							std::cout<<pscore[label]<<std::endl;
+							float match_score = max(0.0f,pscore[label]);
+							std::cout<<"match label : " << label<<"match score : "<<match_score<<std::endl;
+							std::cout<< "name"<< get<1>(face_library)[label].c_str()<<std::endl;
+							std::string names;
+							if(match_score>0.8){
+								names = iLogger::format("%s[%.3f]",get<1>(face_library)[label].c_str(),match_score);
+							}else{
+								names = iLogger::format("%s[%.3f]","UNKOWN",0);
+							}
+							
+			
+							cv::resize(result, result, cv::Size(800, 600));
+							std::vector<cv::Mat> imgs;
+							imgs.push_back(result);
+							imgs.push_back(merge_image);
+							cv::Mat final_result;
+							hconcat(imgs,final_result);
+							cv::putText(final_result,names,cv::Point(80,80),0,1,cv::Scalar(0,255,0),1,16);
+							cv::imshow("face recognition", final_result);
+							cv::waitKey(1); //10ms
+							remove(file_path);
+							remove(flag_path.c_str());
+				}
+				else{
+					remove(file_path);
+					remove(flag_path.c_str());
+					std::cout<<"no face "<<std::endl;
+				}
 		}
 
-
-
 	}
-	delete[] p1;
-	delete[] p3;
-	delete[] p3;
+	
 	rf.UnInit();
 	af.UnInit();
 	return 0;

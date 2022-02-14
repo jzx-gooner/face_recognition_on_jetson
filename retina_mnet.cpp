@@ -17,6 +17,57 @@ const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
 
+
+struct AffineMatrix{
+    float i2d[6];       // image to dst(network), 2x3 matrix
+    float d2i[6];
+
+    void compute(const float lmk[10]){
+
+        // 112 x 112分辨率时的标准人脸关键点（训练用的是这个）
+        // 96  x 112分辨率时的标准人脸关键点在下面基础上去掉x的偏移
+        // 来源于论文和公开代码中训练用到的
+        // https://github.com/wy1iu/sphereface/blob/f5cd440a2233facf46b6529bd13231bb82f23177/preprocess/code/face_align_demo.m
+        // biaozhun_face
+        float Sdata[] = {
+            30.2946 + 8, 51.6963,
+            65.5318 + 8, 51.5014,
+            48.0252 + 8, 71.7366,
+            33.5493 + 8, 92.3655,
+            62.7299 + 8, 92.2041
+        };
+
+        // 以下代码参考自：http://www.zifuture.com/archives/face-alignment
+        // input_face 
+        float Qdata[] = {
+            lmk[0],  lmk[1], 1, 0,
+            lmk[1], -lmk[0], 0, 1,
+            lmk[2],  lmk[3], 1, 0,
+            lmk[3], -lmk[2], 0, 1,
+            lmk[4],  lmk[5], 1, 0,
+            lmk[5], -lmk[4], 0, 1,
+            lmk[6],  lmk[7], 1, 0,
+            lmk[7], -lmk[6], 0, 1,
+            lmk[8],  lmk[9], 1, 0,
+            lmk[9], -lmk[8], 0, 1,
+        };
+        
+        float Udata[4];
+        cv::Mat_<float> Q(10, 4, Qdata);
+        cv::Mat_<float> U(4, 1,  Udata);
+        cv::Mat_<float> S(10, 1, Sdata);
+    
+        U = (Q.t() * Q).inv() * Q.t() * S;
+        i2d[0] = Udata[0];   i2d[1] = Udata[1];     i2d[2] = Udata[2];
+        i2d[3] = -Udata[1];  i2d[4] = Udata[0];     i2d[5] = Udata[3];
+        // std::cout<<"1 " << i2d[0] << " "<<i2d[1]<<" "<<i2d[2]<<" "<<i2d[3]<<" "<<i2d[4]<<" "<<i2d[5];
+        cv::Mat m2x3_i2d(2, 3, CV_32F, i2d);
+        cv::Mat m2x3_d2i(2, 3, CV_32F, d2i);
+        cv::invertAffineTransform(m2x3_i2d, m2x3_d2i);
+    }
+};
+
+
 ILayer* retinaface::conv_bn(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, int oup, int s = 1, float leaky = 0.1) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, oup, DimsHW{3, 3}, getWeights(weightMap, lname + ".0.weight"), emptywts);
@@ -307,17 +358,18 @@ void retinaface::UnInit()
 }
 
 
-cv::Mat retinaface::Inference_file(std::string imagefile,cv::Mat & result)
+bool retinaface::Inference_file(std::string imagefile,cv::Mat& face,cv::Mat & result,bool is_build_lib)
 {
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
     cv::Mat img = cv::imread(imagefile);
     if(!img.data)
-    {
-        std::cout<<"data is NULL"<<std::endl;
-        cv::Mat image = cv::imread("/home/cookoo/face_lib/liubin.jpg");
-        result = image;
-        return image ;
+    {   
+        return false;
+        // std::cout<<"data is NULL"<<std::endl;
+        // cv::Mat image = cv::imread("/home/cookoo/face_lib/liubin.jpg");
+        // result = image;
+        // return image ;
 
     }
     std::cout<<"get the data"<<std::endl;
@@ -346,6 +398,9 @@ cv::Mat retinaface::Inference_file(std::string imagefile,cv::Mat & result)
         std::cout << "after nms -> " << res.size() << std::endl;
         cv::Mat tmp = pr_img.clone();
         decodeplugin::Detection one_face;
+        if(res.size()==0){
+            return false;
+        }
         if(res.size()>0){
             one_face = res[0];
         }
@@ -359,16 +414,32 @@ cv::Mat retinaface::Inference_file(std::string imagefile,cv::Mat & result)
         //     return image ;
         // }
 
-        std::cout<<"1"<<std::endl;
+        std::cout<<"1 " << one_face.landmark[0] << " "<<one_face.landmark[1]<<" "<<one_face.landmark[2]<<" "<<one_face.landmark[3]<<" "<<one_face.landmark[4]<<" "<<one_face.landmark[5];
         cv::Rect r = get_rect_adapt_landmark(tmp, INPUT_W, INPUT_H, one_face.bbox, one_face.landmark);
+        std::cout<<"11111 " << one_face.landmark[0] << " "<<one_face.landmark[1]<<" "<<one_face.landmark[2]<<" "<<one_face.landmark[3]<<" "<<one_face.landmark[4]<<" "<<one_face.landmark[5];
         std::cout<<"3"<<std::endl;
         std::cout<<"size : "<<r.size()<<" area : "<<r.area()<<std::endl;
         std::cout<<r.tl()<<" "<<r.br()<<std::endl;
         std::cout<<"2"<<std::endl;
         std::cout<<tmp.size()<<std::endl;
-        cv::Mat face = tmp(r); 
-
-        //cv::imwrite(std::to_string(b) + "_result_face.jpg", face);
+        face = tmp(r); 
+        // cv::imwrite("face1.jpg", face);
+        //face aligment
+        float one_face_lmk[10];
+        for (int k = 0; k < 10; k += 2) {
+            one_face_lmk[k] = one_face.landmark[k] - r.x;
+            one_face_lmk[k+1] = one_face.landmark[k+1] - r.y;
+        }
+        cv::Size input_size(112, 112);
+        AffineMatrix am;
+        am.compute(one_face_lmk);
+        cv::warpAffine(face, face, cv::Mat_<float>(2, 3, am.i2d), input_size, cv::INTER_LINEAR);
+        if(is_build_lib){
+            auto position = imagefile.rfind("face");
+            auto new_file_name = imagefile.replace(position,4,"draw");
+            std::cout<<"**" <<new_file_name<<std::endl;
+            cv::imwrite(new_file_name, face);
+        }
         cv::rectangle(tmp, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
         cv::putText(tmp, std::to_string((int)(one_face.class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
         for (int k = 0; k < 10; k += 2) {
@@ -376,7 +447,7 @@ cv::Mat retinaface::Inference_file(std::string imagefile,cv::Mat & result)
         }
             
         result = tmp.clone();
-        return face;
+        return true;
     }
     
 }

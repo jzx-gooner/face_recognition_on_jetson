@@ -395,7 +395,7 @@ void arcfacem::Inference_file(std::string imagefile,float *score)
     std::copy(prob,prob+128,score);
 }
 
-float* arcfacem::Inference_image(cv::Mat img)
+cv::Mat arcfacem::Inference_image(cv::Mat img)
 {
     // prepare input data ---------------------------
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
@@ -406,7 +406,8 @@ float* arcfacem::Inference_image(cv::Mat img)
         data[i + 2 * INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
     }
     doInference(*context, data, prob, BATCH_SIZE);
-    return prob;
+    cv::Mat result(1,128,CV_64F,prob);
+    return result;
 }
 
 float arcfacem::Compare(float* prob1, float* prob2)

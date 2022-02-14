@@ -35,7 +35,7 @@ class arcfacem {
     int WTSToEngine(std::string wtsfile,std::string enginefile);
     int Init(std::string enginefile);
     void Inference_file(std::string imagefile,float *score);
-    float * Inference_image(cv::Mat imagefile);
+    cv::Mat Inference_image(cv::Mat imagefile);
     float Compare(float *prob1,float *prob2);
     ICudaEngine* createEngine(const std::string wtsfile,unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt);
     void APIToModel(const std::string wtsfile,unsigned int maxBatchSize, IHostMemory** modelStream);
