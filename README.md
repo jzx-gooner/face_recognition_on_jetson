@@ -1,4 +1,4 @@
-# sgai-face-recognition
+# simple-face-recognition
 一个简单的人脸检测系统
 * 两个类：
 * 一个retinaface类： 用于人脸检测：人脸检测->最大分数人脸->人脸对齐
