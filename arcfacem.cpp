@@ -406,8 +406,14 @@ cv::Mat arcfacem::Inference_image(cv::Mat img)
         data[i + 2 * INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
     }
     doInference(*context, data, prob, BATCH_SIZE);
-    cv::Mat result(1,128,CV_64F,prob);
-    return result;
+    std::vector<float> vec;
+    for(int i=0;i<128;i++)
+    {
+        vec.push_back(prob[i]);
+        std::cout<<prob[i]<<std::endl;
+    }
+    cv::Mat result(vec);
+    return result.t();
 }
 
 float arcfacem::Compare(float* prob1, float* prob2)

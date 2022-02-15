@@ -408,22 +408,14 @@ bool retinaface::Inference_file(std::string imagefile,cv::Mat& face,cv::Mat & re
         std::cout<<"cofidence : " << one_face.class_confidence <<std::endl;
         
         //if confidece low
-        // if (one_face.class_confidence < CONF_THRESH){
-        //     cv::Mat image = cv::imread("../demo_face.jpg");
-        //     result = cv::imread("../demo.backupground.jpg");
-        //     return image ;
-        // }
+        if (one_face.class_confidence < CONF_THRESH){
+            std::cout<<"can not detect the face"<<std::endl;
+            return false ;
+        }
 
-        std::cout<<"1 " << one_face.landmark[0] << " "<<one_face.landmark[1]<<" "<<one_face.landmark[2]<<" "<<one_face.landmark[3]<<" "<<one_face.landmark[4]<<" "<<one_face.landmark[5];
         cv::Rect r = get_rect_adapt_landmark(tmp, INPUT_W, INPUT_H, one_face.bbox, one_face.landmark);
-        std::cout<<"11111 " << one_face.landmark[0] << " "<<one_face.landmark[1]<<" "<<one_face.landmark[2]<<" "<<one_face.landmark[3]<<" "<<one_face.landmark[4]<<" "<<one_face.landmark[5];
-        std::cout<<"3"<<std::endl;
-        std::cout<<"size : "<<r.size()<<" area : "<<r.area()<<std::endl;
-        std::cout<<r.tl()<<" "<<r.br()<<std::endl;
-        std::cout<<"2"<<std::endl;
-        std::cout<<tmp.size()<<std::endl;
         face = tmp(r); 
-        // cv::imwrite("face1.jpg", face);
+
         //face aligment
         float one_face_lmk[10];
         for (int k = 0; k < 10; k += 2) {
@@ -434,16 +426,18 @@ bool retinaface::Inference_file(std::string imagefile,cv::Mat& face,cv::Mat & re
         AffineMatrix am;
         am.compute(one_face_lmk);
         cv::warpAffine(face, face, cv::Mat_<float>(2, 3, am.i2d), input_size, cv::INTER_LINEAR);
-        if(is_build_lib){
-            auto position = imagefile.rfind("face");
-            auto new_file_name = imagefile.replace(position,4,"draw");
-            std::cout<<"**" <<new_file_name<<std::endl;
-            cv::imwrite(new_file_name, face);
-        }
         cv::rectangle(tmp, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
         cv::putText(tmp, std::to_string((int)(one_face.class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
         for (int k = 0; k < 10; k += 2) {
             cv::circle(tmp, cv::Point(one_face.landmark[k], one_face.landmark[k + 1]), 1, cv::Scalar(255 * (k > 2), 255 * (k > 0 && k < 8), 255 * (k < 6)), 4);
+        }
+        //debug save
+        if(is_build_lib){
+            auto position = imagefile.rfind("face");
+            auto new_file_name = imagefile.replace(position,4,"draw");
+            // auto new_file_name1 = imagefile.replace(position,6,"draw/d");
+            cv::imwrite(new_file_name, face);
+            // cv::imwrite(new_file_name1, tmp);
         }
             
         result = tmp.clone();
