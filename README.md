@@ -8,6 +8,7 @@
 * 一个arcface类
   * [128*1]的vector用于人脸距离比较
   * 快速检索
+  * 人脸比对库构建
 
 # how to
 mkdir build && cd build &&cmake .. && make 
